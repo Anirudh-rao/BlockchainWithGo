@@ -1,26 +1,18 @@
 package main
 
 import (
-	"bytes"
-	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
 	"time"
-
-	"github.com/gorilla/mux"
 )
 
-type Block struct{
-	Pos int
-	Data BookCheckout
+type Block struct {
+	Pos       int
+	Data      BookCheckout
 	Timestamp string
-	Hash string
-	PrevHash string
+	Hash      string
+	PrevHash  string
 }
 
 type BookCheckout struct {
@@ -38,7 +30,7 @@ type Book struct {
 	ISBN        string `json:"isbn:`
 }
 
-//To Generate hash 
+//To Generate hash
 func (b *Block) generateHash() {
 	// get string val of the Data
 	bytes, _ := json.Marshal(b.Data)
@@ -49,3 +41,64 @@ func (b *Block) generateHash() {
 	b.Hash = hex.EncodeToString(hash.Sum(nil))
 }
 
+//Create Function Will return A Block from Function
+func CreateBlock(prevBlock *Block, checkoutitem BookCheckout) *Block {
+	block := &Block{}
+	block.Pos = prevBlock.Pos + 1
+	block.Timestamp = time.Now().String()
+	block.Data = checkoutitem
+	block.PrevHash = prevBlock.Hash
+	block.generateHash()
+	return block
+
+}
+
+type Blockchain struct {
+	blocks []*Block
+}
+
+var BlockChain *Blockchain
+
+//Adding New Block
+func (bc *Blockchain) AddBlock(data BookCheckout) {
+	prevBlock := bc.blocks[len(bc.blocks)-1]
+	block := CreateBlock(prevBlock, data)
+
+	if validBlock(block, prevBlock) {
+		bc.blocks = append(bc.blocks, block)
+	}
+}
+
+//Checking for Geneis Block:Begining Block
+func GenesisBlock() *Block {
+	return CreateBlock(&Block{}, BookCheckout{IsGenesis: true})
+}
+
+//Starting New BlockChain
+func NewBlockchain() *Blockchain {
+	return &Blockchain{[]*Block{GenesisBlock()}}
+}
+
+//Checking for Valid Block
+func validBlock(block, prevBlock *Block) bool {
+
+	if prevBlock.Hash != block.PrevHash {
+		return false
+	}
+
+	if !block.validateHash(block.Hash) {
+		return false
+	}
+
+	if prevBlock.Pos+1 != block.Pos {
+		return false
+	}
+	return true
+}
+func (b *Block) validateHash(hash string) bool {
+	b.generateHash()
+	if b.Hash != hash {
+		return false
+	}
+	return true
+}
